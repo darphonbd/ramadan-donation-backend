@@ -1,7 +1,9 @@
 {
   "functions": {
     "api/webhook.js": {
-      "bodyParser": false
+      "config": {
+        "bodyParser": false
+      }
     }
   }
 }
