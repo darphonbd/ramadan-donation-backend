@@ -7,25 +7,29 @@ const supabase = createClient(
 );
 
 module.exports = async (req, res) => {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  // bodyParser: false থাকলে req.body হবে Buffer
+  const payload = req.body;
   const sig = req.headers['stripe-signature'];
+
   let event;
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
   try {
     event = stripe.webhooks.constructEvent(
-      req.body,
+      payload,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.log(`Webhook signature verification failed.`, err.message);
+    console.log(`Webhook signature verification failed: ${err.message}`);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // Handle the event
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
 
-    const amount = session.amount_total; // পেনিতে
+    const amount = session.amount_total;
     const currency = session.currency;
     const metadata = session.metadata || {};
     const donorEmail = session.customer_email || metadata.donorEmail || '';
