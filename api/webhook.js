@@ -7,56 +7,45 @@ const supabase = createClient(
 );
 
 module.exports = async (req, res) => {
-  let rawBody = '';
+  try {
+    // raw body সংগ্রহ করার জন্য Promise
+    const rawBody = await new Promise((resolve, reject) => {
+      let data = '';
+      req.on('data', chunk => data += chunk);
+      req.on('end', () => resolve(data));
+      req.on('error', err => reject(err));
+    });
 
-  // request-এর raw data সংগ্রহ করা
-  req.on('data', (chunk) => {
-    rawBody += chunk.toString();
-  });
-
-  req.on('end', async () => {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const sig = req.headers['stripe-signature'];
-    let event;
 
-    try {
-      event = stripe.webhooks.constructEvent(
-        rawBody,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
-    } catch (err) {
-      console.log(`Webhook signature verification failed: ${err.message}`);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
+    // event construct
+    const event = stripe.webhooks.constructEvent(
+      rawBody,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
 
-      const amount = session.amount_total;
-      const currency = session.currency;
-      const metadata = session.metadata || {};
-      const donorEmail = session.customer_email || metadata.donorEmail || '';
-      const donorName = metadata.donorName || 'Anonymous';
-      const message = metadata.message || '';
-
       const { error } = await supabase.from('donations').insert([
         {
-          amount,
-          currency,
-          donor_name: donorName,
-          donor_email: donorEmail,
-          message,
+          amount: session.amount_total,
+          currency: session.currency,
+          donor_name: session.metadata?.donorName || 'Anonymous',
+          donor_email: session.metadata?.donorEmail || '',
+          message: session.metadata?.message || '',
           stripe_session_id: session.id,
         },
       ]);
 
-      if (error) {
-        console.error('Supabase insert error:', error);
-        return res.status(500).json({ error: 'Database insert failed' });
-      }
+      if (error) throw error;
     }
 
     res.status(200).json({ received: true });
-  });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(400).json({ error: err.message });
+  }
 };
