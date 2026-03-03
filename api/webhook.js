@@ -8,7 +8,6 @@ const supabase = createClient(
 
 module.exports = async (req, res) => {
   try {
-    // raw body সংগ্রহ করার জন্য Promise
     const rawBody = await new Promise((resolve, reject) => {
       let data = '';
       req.on('data', chunk => data += chunk);
@@ -19,7 +18,6 @@ module.exports = async (req, res) => {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const sig = req.headers['stripe-signature'];
 
-    // event construct
     const event = stripe.webhooks.constructEvent(
       rawBody,
       sig,
@@ -29,16 +27,23 @@ module.exports = async (req, res) => {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
 
-      const { error } = await supabase.from('donations').insert([
-        {
-          amount: session.amount_total,
-          currency: session.currency,
-          donor_name: session.metadata?.donorName || 'Anonymous',
-          donor_email: session.metadata?.donorEmail || '',
-          message: session.metadata?.message || '',
-          stripe_session_id: session.id,
-        },
-      ]);
+      // upsert with ignoreDuplicates
+      const { error } = await supabase
+        .from('donations')
+        .upsert(
+          {
+            amount: session.amount_total,
+            currency: session.currency,
+            donor_name: session.metadata?.donorName || 'Anonymous',
+            donor_email: session.metadata?.donorEmail || '',
+            message: session.metadata?.message || '',
+            stripe_session_id: session.id,
+          },
+          {
+            onConflict: 'stripe_session_id', // যে কলামটি unique
+            ignoreDuplicates: true,           // duplicate হলে ignore করবে
+          }
+        );
 
       if (error) throw error;
     }
