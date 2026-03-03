@@ -44,8 +44,8 @@ module.exports = async (req, res) => {
         },
       ],
       mode: isMonthly ? 'subscription' : 'payment',
-      success_url: 'https://yourblog.blogspot.com/p/success.html?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'https://yourblog.blogspot.com/p/cancel.html',
+      success_url: 'https://ruhanshope.site/p/success.html?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: 'https://ruhanshope.site/p/cancel.html',
       metadata: {
         donorName: donorName || 'Anonymous',
         donorEmail: donorEmail || '',
