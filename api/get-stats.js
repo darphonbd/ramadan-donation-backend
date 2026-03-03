@@ -17,7 +17,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // মোট ডোনেশন (পেনিতে)
+    // মোট টাকা
     const { data: totalData, error: totalError } = await supabase
       .from('donations')
       .select('amount');
@@ -25,8 +25,15 @@ module.exports = async (req, res) => {
     if (totalError) throw totalError;
 
     const totalRaised = totalData.reduce((acc, row) => acc + row.amount, 0);
+    
+    // মোট ডোনারের সংখ্যা (স্বতন্ত্র সেশন আইডি গণনা)
+    const { count, error: countError } = await supabase
+      .from('donations')
+      .select('*', { count: 'exact', head: true });
 
-    // সাম্প্রতিক ৫টি ডোনেশন
+    if (countError) throw countError;
+
+    // সাম্প্রতিক ডোনেশন
     const { data: recentData, error: recentError } = await supabase
       .from('donations')
       .select('donor_name, amount, created_at')
@@ -37,6 +44,7 @@ module.exports = async (req, res) => {
 
     res.status(200).json({
       totalRaised,          // পেনিতে
+      totalDonors: count,   // মোট ডোনার সংখ্যা
       recentDonations: recentData,
     });
   } catch (err) {
