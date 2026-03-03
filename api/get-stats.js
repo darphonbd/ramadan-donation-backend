@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
     const { data: recentData, error: recentError } = await supabase
       .from('donations')
       .select('donor_name, amount, created_at')
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(5);
 
     if (recentError) throw recentError;
