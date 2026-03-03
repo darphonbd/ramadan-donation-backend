@@ -7,16 +7,13 @@ const supabase = createClient(
 );
 
 module.exports = async (req, res) => {
-  // bodyParser: false থাকলে req.body হবে Buffer
-  const payload = req.body;
-  const sig = req.headers['stripe-signature'];
-
-  let event;
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const sig = req.headers['stripe-signature'];
+  let event;
 
   try {
     event = stripe.webhooks.constructEvent(
-      payload,
+      req.body,  // bodyParser: false থাকলে এটি হবে Buffer
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
@@ -25,7 +22,6 @@ module.exports = async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
 
